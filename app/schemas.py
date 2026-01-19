@@ -10,10 +10,20 @@ class PostBase(BaseModel):
 class PostCreate(PostBase):
     pass
 
-class PostResponse(BaseModel):
+class UserResponde(BaseModel):
+    id: int
+    email : EmailStr
+    
+    class Config:
+        orm_mode = True
+
+class PostResponse(PostBase):
     title : str
     content : str
     published : bool
+    owner_id : int
+    owner : UserResponde
+
 
     class Config:
         orm_mode = True
@@ -22,10 +32,6 @@ class PostResponse(BaseModel):
 class UserCreate(BaseModel):
     email : EmailStr
     password : str
-
-class UserResponde(BaseModel):
-    id: int
-    email : EmailStr
     
 
 class UserLogi(BaseModel):
