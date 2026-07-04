@@ -1,85 +1,98 @@
-"""
-DEPRECATED: Schemas have been reorganized into the schemas/ package.
-This file is kept for backward compatibility.
+"""Schema layer - Pydantic models for request/response validation."""
 
-Use imports from app.schemas instead:
-  from app.schemas import UserCreate, PostCreate, etc.
-"""
+# Common schemas
+from .common import TokenData, Token, ErrorResponse, PaginationParams
 
-# Re-export all schemas for backward compatibility
-from app.schemas import (
-    # Common
-    TokenData,
-    Token,
-    ErrorResponse,
-    PaginationParams,
-    # User
+# User schemas
+from .user_schemas import (
     UserCreate,
     UserLogin,
     UserUpdate,
     UserChangePassword,
     UserResponse,
     UserPublicProfile,
-    # Post
+)
+
+# Post schemas
+from .post_schemas import (
     PostBase,
     PostCreate,
     PostUpdate,
     PostResponse,
     PostWithStats,
     PostListResponse,
-    # Comment
+)
+
+# Comment schemas
+from .comment_schemas import (
     CommentCreate,
     CommentUpdate,
     CommentResponse,
     CommentWithReplies,
     CommentListResponse,
-    # Vote
+)
+
+# Vote schemas
+from .vote_schemas import (
     VoteCreate,
     VoteResponse,
     CommentVoteCreate,
     CommentVoteResponse,
     VoteStats,
     CommentVoteStats,
-    # Friendship
+)
+
+# Friendship schemas
+from .friendship_schemas import (
     FriendshipCreate,
     FriendshipUpdate,
     FriendshipResponse,
-    # Notification
+)
+
+# Notification schemas
+from .notification_schemas import (
     NotificationResponse,
     NotificationListResponse,
 )
 
 __all__ = [
+    # Common
     "TokenData",
     "Token",
     "ErrorResponse",
     "PaginationParams",
+    # User
     "UserCreate",
     "UserLogin",
     "UserUpdate",
     "UserChangePassword",
     "UserResponse",
     "UserPublicProfile",
+    # Post
     "PostBase",
     "PostCreate",
     "PostUpdate",
     "PostResponse",
     "PostWithStats",
     "PostListResponse",
+    # Comment
     "CommentCreate",
     "CommentUpdate",
     "CommentResponse",
     "CommentWithReplies",
     "CommentListResponse",
+    # Vote
     "VoteCreate",
     "VoteResponse",
     "CommentVoteCreate",
     "CommentVoteResponse",
     "VoteStats",
     "CommentVoteStats",
+    # Friendship
     "FriendshipCreate",
     "FriendshipUpdate",
     "FriendshipResponse",
+    # Notification
     "NotificationResponse",
     "NotificationListResponse",
 ]

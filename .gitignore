@@ -1,3 +1,17 @@
 __pycache__
 venv/
 .env
+
+frontend/
+sql_app.db
+
+__pycache__
+
+alembic/versions/
+
+run.bat
+run.ps1
+run.sh
+
+verify_db.py
+reset_db.py

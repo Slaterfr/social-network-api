@@ -1,65 +1,41 @@
-from .. import models, schemas, utils, oauth2
-from fastapi import FastAPI, Body, Response, status, HTTPException, Depends, APIRouter
+from fastapi import Response, status, Depends, APIRouter
 from sqlalchemy.orm import Session
-from ..database import get_db 
 from typing import Optional
+
+from .. import schemas, models
+from app.repository.database import get_db
+from app.dependencies.auth import get_current_user
+from ..services import PostService
 
 router = APIRouter(
     prefix='/posts',
     tags=['Posts']
 )
 
+post_service = PostService()
+
 
 @router.get('/', response_model=list[schemas.PostResponse])
-def get_posts(db : Session = Depends(get_db), limit : int = 10, skip : int = 0, search : Optional[str] = ""):
-    posts = db.query(models.Posts).filter(models.Posts.title.contains(search)).limit(limit).offset(skip).all()
-    return posts
+def get_posts(db: Session = Depends(get_db), limit: int = 10, skip: int = 0, search: Optional[str] = ""):
+    return post_service.get_all_posts(db, skip, limit, search)
+
 
 @router.post('/', status_code=status.HTTP_201_CREATED, response_model=schemas.PostResponse)
-def create_posts(post: schemas.PostCreate, db : Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
-   # cur.execute("""INSERT INTO posts(title, content, published) VALUES(%s, %s, %s) RETURNING *""", (post.title, post.content, post.published))
-    #new_post = cur.fetchone()
-    #conn.commit()
-
-    new_post = models.Posts(owner_id = current_user.id, **post.dict())
-    db.add(new_post)
-    db.commit()
-    db.refresh(new_post)
-    print(current_user.email)
-    return new_post
+def create_posts(post: schemas.PostCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    return post_service.create_post(post, current_user.id, db)
 
 
-@router.get('/{id}')
-def get_post( id:int, db : Session = Depends(get_db)):
-    post = db.query(models.Posts).filter(models.Posts.id == id).first()
-    print(post)
-    if not post:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"couldn't find a post with that id ({id})")
-    return {f"post with id of {id}": post }
+@router.get('/{id}', response_model=schemas.PostResponse)
+def get_post(id: int, db: Session = Depends(get_db)):
+    return post_service.get_post(id, db)
 
-@router.delete('/{id}')
-def delete_post(id:int, db : Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
-    postquery = db.query(models.Posts).filter(models.Posts.id == id)
 
-    post = postquery.first()
+@router.delete('/{id}', status_code=status.HTTP_204_NO_CONTENT)
+def delete_post(id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    post_service.delete_post(id, current_user, db)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-    if post.first() == None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"couldn't find a post with that id ({id})")
 
-    if post.owner_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to perform requested action")
-    postquery.delete(synchronize_session=False)
-    db.commit()
-    return {"deleted post"}
-
-@router.put('/{id}')
-def update_post(id:int, updated_post : schemas.PostBase, db : Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
-    post_query = db.query(models.Posts).filter(models.Posts.id == id)
-    post = post_query.first()
-    if post == None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"couldn't find a post with that id ({id})")
-    if post.owner_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to perform requested action")
-    post_query.update(updated_post.dict(), synchronize_session=False)
-    db.commit()
-    return updated_post
+@router.put('/{id}', response_model=schemas.PostResponse)
+def update_post(id: int, updated_post: schemas.PostUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    return post_service.update_post(id, current_user, updated_post, db)

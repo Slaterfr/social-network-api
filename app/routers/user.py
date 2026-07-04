@@ -1,28 +1,99 @@
-from .. import models, schemas, utils
-from fastapi import FastAPI, Body, Response, status, HTTPException, Depends, APIRouter
+from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.orm import Session
-from ..database import get_db 
+
+from .. import schemas, models
+from app.repository.database import get_db
+from app.dependencies.auth import get_current_user
+from ..services import UserService, AuthService
 
 router = APIRouter(
     prefix='/users',
     tags=['Users']
 )
 
-@router.post('/', status_code=status.HTTP_201_CREATED, response_model=schemas.UserResponde)
-def create_user(user : schemas.UserCreate, db : Session = Depends(get_db)):
+user_service = UserService()
+auth_service = AuthService()
+
+
+@router.post('/', status_code=status.HTTP_201_CREATED, response_model=schemas.UserResponse)
+def create_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
+    """
+    Create a new user account (alternative to /auth/register).
     
-    hashed_password = utils.hash(user.password)
-    user.password = hashed_password
-
-    new_user = models.User(**user.dict())
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return new_user
-
-@router.get('/{id}', response_model=schemas.UserResponde)
-def get_user(id : int, db : Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.id==id).first()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"couldn't find an user with that id ({id})")
+    - **email**: Valid email address (must be unique)
+    - **username**: Username 3-50 characters (must be unique)
+    - **password**: Password 8+ characters (requires uppercase and digit)
+    - **bio**: Optional profile bio (max 500 characters)
+    
+    Returns the created user.
+    """
+    user = auth_service.register(user_data, db)
     return user
+
+
+@router.get('/me', response_model=schemas.UserResponse)
+def get_current_user_profile(current_user: models.User = Depends(get_current_user)):
+    """
+    Get current authenticated user's profile.
+    
+    Requires authentication token.
+    """
+    return current_user
+
+
+@router.get('/{user_id}', response_model=schemas.UserResponse)
+def get_user(user_id: int, db: Session = Depends(get_db)):
+    """
+    Get user profile by ID.
+    
+    Returns basic user information (email, username, bio, role).
+    """
+    user = user_service.get_user(user_id, db)
+    return user
+
+
+@router.get('/profile/{username}', response_model=schemas.UserPublicProfile)
+def get_user_by_username(username: str, db: Session = Depends(get_db)):
+    """
+    Get public user profile by username.
+    
+    Returns limited public information (username, bio, created_at).
+    """
+    user = user_service.get_user_by_username(username, db)
+    return user
+
+
+@router.put('/me', response_model=schemas.UserResponse)
+def update_current_user_profile(
+    update_data: schemas.UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Update current user's profile.
+    
+    Requires authentication token.
+    Can update: username, bio
+    """
+    updated_user = user_service.update_profile(current_user.id, update_data, db)
+    return updated_user
+
+
+@router.post('/me/change-password')
+def change_password(
+    change_pwd: schemas.UserChangePassword,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Change current user's password.
+    
+    Requires authentication token and old password verification.
+    """
+    user_service.change_password(
+        current_user.id,
+        change_pwd.old_password,
+        change_pwd.new_password,
+        db
+    )
+    return {"message": "Password changed successfully"}
