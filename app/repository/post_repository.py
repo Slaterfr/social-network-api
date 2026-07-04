@@ -2,7 +2,7 @@
 
 from typing import Optional, List
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, or_
 
 from app import models
 from .base import BaseCRUD
@@ -20,7 +20,7 @@ class PostRepository(BaseCRUD[models.Posts]):
         """Find all posts by owner (user)."""
         return db.query(self.model).filter(
             self.model.owner_id == owner_id
-        ).offset(skip).limit(limit).all()
+        ).order_by(desc(self.model.created_at)).offset(skip).limit(limit).all()
     
     def find_published(
         self, db: Session, skip: int = 0, limit: int = 100
@@ -28,7 +28,7 @@ class PostRepository(BaseCRUD[models.Posts]):
         """Find all published posts."""
         return db.query(self.model).filter(
             self.model.published == True
-        ).offset(skip).limit(limit).all()
+        ).order_by(desc(self.model.created_at)).offset(skip).limit(limit).all()
     
     def find_by_owner_published(
         self, db: Session, owner_id: int, skip: int = 0, limit: int = 100
@@ -36,15 +36,15 @@ class PostRepository(BaseCRUD[models.Posts]):
         """Find published posts by owner."""
         return db.query(self.model).filter(
             (self.model.owner_id == owner_id) & (self.model.published == True)
-        ).offset(skip).limit(limit).all()
+        ).order_by(desc(self.model.created_at)).offset(skip).limit(limit).all()
     
     def find_with_search(
         self, db: Session, search: str = "", skip: int = 0, limit: int = 100
     ) -> List[models.Posts]:
-        """Find posts by title containing search term."""
+        """Find posts by title or content containing search term."""
         return db.query(self.model).filter(
-            self.model.title.contains(search)
-        ).offset(skip).limit(limit).all()
+            or_(self.model.title.contains(search), self.model.content.contains(search))
+        ).order_by(desc(self.model.created_at)).offset(skip).limit(limit).all()
     
     def find_recent(
         self, db: Session, skip: int = 0, limit: int = 100

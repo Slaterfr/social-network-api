@@ -16,7 +16,9 @@ post_service = PostService()
 
 
 @router.get('/', response_model=list[schemas.PostResponse])
-def get_posts(db: Session = Depends(get_db), limit: int = 10, skip: int = 0, search: Optional[str] = ""):
+def get_posts(db: Session = Depends(get_db), limit: int = 10, skip: int = 0, search: Optional[str] = "", user_id: Optional[int] = None):
+    if user_id is not None:
+        return post_service.get_user_posts(user_id, db, skip, limit)
     return post_service.get_all_posts(db, skip, limit, search)
 
 
