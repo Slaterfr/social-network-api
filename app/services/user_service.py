@@ -1,11 +1,12 @@
 """User service layer - handles user profile and management operations."""
 
 from sqlalchemy.orm import Session
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, UploadFile
 
 from app import schemas, models
 from app.repository.user_repository import UserRepository
 from app.dependencies.security import hash_password, verify_password
+from .file_management import FileManagementService
 
 
 class UserService:
@@ -13,6 +14,7 @@ class UserService:
     
     def __init__(self):
         self.user_repo = UserRepository()
+        self.file_management = FileManagementService()
     
     def get_user(self, user_id: int, db: Session) -> models.User:
         """
@@ -34,7 +36,7 @@ class UserService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"User with id {user_id} not found"
             )
-        return user
+        return self.attach_avatar_url(user)
     
     def get_user_by_username(self, username: str, db: Session) -> models.User:
         """
@@ -56,7 +58,7 @@ class UserService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"User {username} not found"
             )
-        return user
+        return self.attach_avatar_url(user)
     
     def update_profile(
         self, user_id: int, update_data: schemas.UserUpdate, db: Session
@@ -97,7 +99,7 @@ class UserService:
             del update_dict["role"]
         
         updated_user = self.user_repo.update(db, user_id, update_dict)
-        return updated_user
+        return self.attach_avatar_url(updated_user)
     
     def change_password(
         self, user_id: int, old_password: str, new_password: str, db: Session
@@ -137,3 +139,36 @@ class UserService:
     def user_exists(self, user_id: int, db: Session) -> bool:
         """Check if user exists."""
         return self.user_repo.read(db, user_id) is not None
+
+    def attach_avatar_url(self, user: models.User) -> models.User:
+        """Attach presigned avatar download URL if uploader has an avatar."""
+        if user and user.avatar:
+            try:
+                user.avatar_url = self.file_management.generate_url(user.avatar.storage_key)
+            except Exception:
+                user.avatar_url = None
+        elif user:
+            user.avatar_url = None
+        return user
+
+    async def update_avatar(self, user: models.User, file: UploadFile, db: Session) -> models.User:
+        """Upload a new profile picture, clean up the old one, and update references."""
+        # Upload the new image to S3 under folder "avatars"
+        new_media = await self.file_management.upload_file(file, "avatars", user.id, db)
+        
+        # If user has an old avatar, delete it from S3 and clean up DB references
+        old_avatar_id = user.avatar_id
+        if old_avatar_id:
+            try:
+                self.file_management.delete_file(old_avatar_id, db)
+            except Exception as e:
+                # Log and skip, old avatar might not exist in S3/DB
+                print(f"Warning: Failed to clean up old avatar: {str(e)}")
+
+        # Set the new avatar ID and commit
+        user.avatar_id = new_media.id
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        return self.attach_avatar_url(user)

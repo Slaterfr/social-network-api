@@ -16,6 +16,7 @@ class Posts(Base):
     owner = so.relationship("User")
     number = sa.Column(sa.String, )
     updated_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=True)
+    media_attachments = so.relationship("PostMedia", back_populates="post", order_by="PostMedia.order", cascade="all, delete-orphan")
 
 
 class User(Base):
@@ -27,6 +28,8 @@ class User(Base):
     username = sa.Column(sa.String, nullable=False, unique=True)
     bio = sa.Column(sa.String, nullable=True)
     role = sa.Column(sa.String, nullable=False, server_default="user")
+    avatar_id = sa.Column(sa.UUID(as_uuid=True), sa.ForeignKey("media_files.id", ondelete="SET NULL", use_alter=True, name="fk_user_avatar"), nullable=True)
+    avatar = so.relationship("MediaFile", foreign_keys=[avatar_id])
 
 class Vote(Base):
     __tablename__ = "votes"
@@ -76,3 +79,28 @@ class Friendship(Base):
     __table_args__ = (
         sa.UniqueConstraint('requestor_id', 'requested_id', name='uq_friendships_requestor_requested'),
     )
+
+
+class MediaFile(Base):
+    __tablename__ = "media_files"
+
+    id = sa.Column(sa.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    storage_key = sa.Column(sa.String, nullable=False, unique=True)
+    url = sa.Column(sa.String, nullable=False)
+    uploaded_by = sa.Column(sa.Integer, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.func.now())
+
+    uploader = so.relationship("User", foreign_keys=[uploaded_by])
+
+
+class PostMedia(Base):
+    __tablename__ = "post_media"
+
+    id = sa.Column(sa.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    post_id = sa.Column(sa.Integer, sa.ForeignKey("posts.id", ondelete="CASCADE"), nullable=False)
+    media_id = sa.Column(sa.UUID(as_uuid=True), sa.ForeignKey("media_files.id", ondelete="CASCADE"), nullable=False)
+    order = sa.Column(sa.Integer, nullable=False, default=0)
+    uploaded_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.func.now())
+
+    post = so.relationship("Posts", back_populates="media_attachments")
+    media_file = so.relationship("MediaFile")

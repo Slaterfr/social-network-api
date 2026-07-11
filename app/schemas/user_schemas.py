@@ -60,6 +60,7 @@ class UserResponse(UserBase):
     id: int
     role: str
     created_at: datetime
+    avatar_url: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -71,6 +72,7 @@ class UserPublicProfile(BaseModel):
     username: str
     bio: Optional[str]
     created_at: datetime
+    avatar_url: Optional[str] = None
     
     class Config:
         from_attributes = True

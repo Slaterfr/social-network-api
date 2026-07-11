@@ -271,4 +271,16 @@ class FriendshipService:
             u = self.user_repo.read(db, fid)
             if u:
                 friends.append(u)
+        
+        from .file_management import FileManagementService
+        file_management = FileManagementService()
+        for u in friends:
+            if u.avatar:
+                try:
+                    u.avatar_url = file_management.generate_url(u.avatar.storage_key)
+                except Exception:
+                    u.avatar_url = None
+            else:
+                u.avatar_url = None
+                
         return friends

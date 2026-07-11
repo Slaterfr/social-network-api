@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import APIRouter, Depends, status, HTTPException, File, UploadFile
 from sqlalchemy.orm import Session
 
 from .. import schemas, models
@@ -38,7 +38,22 @@ def get_current_user_profile(current_user: models.User = Depends(get_current_use
     
     Requires authentication token.
     """
-    return current_user
+    return user_service.attach_avatar_url(current_user)
+
+
+@router.post('/me/avatar', response_model=schemas.UserResponse)
+async def upload_avatar(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Upload a new profile picture (avatar) for the current user.
+    
+    Checks that the file is a valid image and converts it to WebP before uploading to S3.
+    """
+    updated_user = await user_service.update_avatar(current_user, file, db)
+    return updated_user
 
 
 @router.get('/{user_id}', response_model=schemas.UserResponse)

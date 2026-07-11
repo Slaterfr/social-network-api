@@ -8,6 +8,7 @@ from fastapi import HTTPException, status
 from app import schemas, models
 from app.repository.comment_repository import CommentRepository
 from app.repository.post_repository import PostRepository
+from .file_management import FileManagementService
 
 
 class CommentService:
@@ -16,6 +17,7 @@ class CommentService:
     def __init__(self):
         self.comment_repo = CommentRepository()
         self.post_repo = PostRepository()
+        self.file_management = FileManagementService()
     
     def create_comment(
         self, comment_data: schemas.CommentCreate, user_id: int, db: Session
@@ -59,7 +61,7 @@ class CommentService:
                 "parent_id": comment_data.parent_id
             }
         )
-        return comment
+        return self._attach_comment_avatar(comment)
     
     def get_comment(self, comment_id: int, db: Session) -> models.Comment:
         """
@@ -81,7 +83,7 @@ class CommentService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Comment with id {comment_id} not found"
             )
-        return comment
+        return self._attach_comment_avatar(comment)
     
     def get_post_comments(
         self, post_id: int, db: Session, skip: int = 0, limit: int = 20
@@ -98,7 +100,8 @@ class CommentService:
         Returns:
             List of comments
         """
-        return self.comment_repo.find_by_post(db, post_id, skip, limit)
+        comments = self.comment_repo.find_by_post(db, post_id, skip, limit)
+        return [self._attach_comment_avatar(c) for c in comments]
     
     def get_comment_replies(self, comment_id: int, db: Session) -> List[models.Comment]:
         """
@@ -111,7 +114,8 @@ class CommentService:
         Returns:
             List of reply comments
         """
-        return self.comment_repo.find_replies(db, comment_id)
+        replies = self.comment_repo.find_replies(db, comment_id)
+        return [self._attach_comment_avatar(c) for c in replies]
     
     def update_comment(
         self, comment_id: int, current_user: models.User, update_data: schemas.CommentUpdate, db: Session
@@ -134,7 +138,7 @@ class CommentService:
         updated_comment = self.comment_repo.update(
             db, comment_id, data_to_update
         )
-        return updated_comment
+        return self._attach_comment_avatar(updated_comment)
     
     def delete_comment(self, comment_id: int, current_user: models.User, db: Session) -> bool:
         """
@@ -165,3 +169,15 @@ class CommentService:
     def comment_exists(self, comment_id: int, db: Session) -> bool:
         """Check if comment exists."""
         return self.comment_repo.read(db, comment_id) is not None
+
+    def _attach_comment_avatar(self, comment: models.Comment) -> models.Comment:
+        """Attach presigned avatar download URL to the comment's author."""
+        if comment and comment.user:
+            if comment.user.avatar:
+                try:
+                    comment.user.avatar_url = self.file_management.generate_url(comment.user.avatar.storage_key)
+                except Exception:
+                    comment.user.avatar_url = None
+            else:
+                comment.user.avatar_url = None
+        return comment

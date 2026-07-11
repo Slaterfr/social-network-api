@@ -17,9 +17,9 @@ class UserRepository(BaseCRUD[models.User]):
         """Find user by email address."""
         return db.query(self.model).filter(self.model.email == email).first()
     
-    def find_by_username(self, db: Session, username: str) -> Optional[models.User]:
-        """Find user by username."""
-        return db.query(self.model).filter(self.model.username == username).first()
+    def find_by_username(self, db: Session, username: str) -> list[models.User]:
+        """Find users matching username pattern (case-insensitive LIKE search)."""
+        return db.query(self.model).filter(self.model.username.ilike(f"%{username}%")).all()
     
     def find_by_email_or_username(
         self, db: Session, email_or_username: str

@@ -8,6 +8,7 @@ from fastapi import HTTPException, status
 from app import schemas, models
 from app.repository.post_repository import PostRepository
 from app.repository.vote_repository import VoteRepository
+from .file_management import FileManagementService
 
 
 class PostService:
@@ -16,6 +17,7 @@ class PostService:
     def __init__(self):
         self.post_repo = PostRepository()
         self.vote_repo = VoteRepository()
+        self.file_management = FileManagementService()
     
     def create_post(
         self, post_data: schemas.PostCreate, owner_id: int, db: Session
@@ -40,7 +42,19 @@ class PostService:
                 "owner_id": owner_id
             }
         )
-        return post
+        
+        # Link media attachments if provided
+        if post_data.media_ids:
+            for idx, media_id in enumerate(post_data.media_ids):
+                db.add(models.PostMedia(
+                    post_id=post.id,
+                    media_id=media_id,
+                    order=idx
+                ))
+            db.commit()
+            db.refresh(post)
+
+        return self._attach_post_media_urls(post)
     
     def get_post(self, post_id: int, db: Session) -> models.Posts:
         """
@@ -62,7 +76,7 @@ class PostService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Post with id {post_id} not found"
             )
-        return post
+        return self._attach_post_media_urls(post)
     
     def get_all_posts(
         self, db: Session, skip: int = 0, limit: int = 10, search: str = ""
@@ -80,8 +94,10 @@ class PostService:
             List of posts
         """
         if search:
-            return self.post_repo.find_with_search(db, search, skip, limit)
-        return self.post_repo.find_published(db, skip, limit)
+            posts = self.post_repo.find_with_search(db, search, skip, limit)
+        else:
+            posts = self.post_repo.find_published(db, skip, limit)
+        return [self._attach_post_media_urls(p) for p in posts]
     
     def get_user_posts(
         self, user_id: int, db: Session, skip: int = 0, limit: int = 10
@@ -98,7 +114,8 @@ class PostService:
         Returns:
             List of user's posts
         """
-        return self.post_repo.find_by_owner(db, user_id, skip, limit)
+        posts = self.post_repo.find_by_owner(db, user_id, skip, limit)
+        return [self._attach_post_media_urls(p) for p in posts]
     
     def update_post(
         self, post_id: int, current_user: models.User, update_data: schemas.PostUpdate, db: Session
@@ -133,7 +150,7 @@ class PostService:
         updated_post = self.post_repo.update(
             db, post_id, data_to_update
         )
-        return updated_post
+        return self._attach_post_media_urls(updated_post)
     
     def delete_post(self, post_id: int, current_user: models.User, db: Session) -> bool:
         """
@@ -160,6 +177,34 @@ class PostService:
             )
         
         return self.post_repo.delete(db, post_id)
+
+    def _attach_post_media_urls(self, post: models.Posts) -> models.Posts:
+        """Attach presigned avatar and attachment download URLs to a post."""
+        if not post:
+            return post
+
+        # 1. Attach post owner's avatar URL
+        if post.owner:
+            if post.owner.avatar:
+                try:
+                    post.owner.avatar_url = self.file_management.generate_url(post.owner.avatar.storage_key)
+                except Exception:
+                    post.owner.avatar_url = None
+            else:
+                post.owner.avatar_url = None
+
+        # 2. Attach post's attachment media URLs
+        urls = []
+        if post.media_attachments:
+            for attachment in post.media_attachments:
+                if attachment.media_file:
+                    try:
+                        url = self.file_management.generate_url(attachment.media_file.storage_key)
+                        urls.append(url)
+                    except Exception:
+                        pass
+        post.media_urls = urls
+        return post
     
     def get_post_with_stats(self, post_id: int, db: Session) -> dict:
         """

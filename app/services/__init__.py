@@ -7,6 +7,7 @@ from .comment_service import CommentService
 from .vote_service import VoteService, CommentVoteService
 from .friendship_service import FriendshipService
 from .notification_service import NotificationService
+from .file_management import FileManagementService
 
 __all__ = [
     "AuthService",
@@ -17,4 +18,5 @@ __all__ = [
     "CommentVoteService",
     "FriendshipService",
     "NotificationService",
+    "FileManagementService",
 ]

@@ -1,7 +1,8 @@
 """Post schemas for input/output validation."""
 
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional
+from typing import Optional, List
+import uuid
 from datetime import datetime
 from .user_schemas import UserPublicProfile
 
@@ -15,7 +16,7 @@ class PostBase(BaseModel):
 
 class PostCreate(PostBase):
     """Post creation schema."""
-    pass
+    media_ids: Optional[List[uuid.UUID]] = Field(default=None)
 
 
 class PostUpdate(BaseModel):
@@ -32,6 +33,7 @@ class PostResponse(PostBase):
     owner: UserPublicProfile
     created_at: datetime
     updated_at: Optional[datetime] = None
+    media_urls: List[str] = []
     
     class Config:
         from_attributes = True
