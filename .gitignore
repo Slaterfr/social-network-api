@@ -15,3 +15,5 @@ run.sh
 
 verify_db.py
 reset_db.py
+
+*.pyc
