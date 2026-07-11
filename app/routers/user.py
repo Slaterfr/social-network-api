@@ -67,15 +67,13 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
     return user
 
 
-@router.get('/profile/{username}', response_model=schemas.UserPublicProfile)
+@router.get('/profile/{username}', response_model=list[schemas.UserPublicProfile])
 def get_user_by_username(username: str, db: Session = Depends(get_db)):
     """
-    Get public user profile by username.
-    
-    Returns limited public information (username, bio, created_at).
+    Get public user profiles matching username pattern (case-insensitive LIKE search).
     """
-    user = user_service.get_user_by_username(username, db)
-    return user
+    users = user_service.get_user_by_username(username, db)
+    return users
 
 
 @router.put('/me', response_model=schemas.UserResponse)

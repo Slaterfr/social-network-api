@@ -38,27 +38,19 @@ class UserService:
             )
         return self.attach_avatar_url(user)
     
-    def get_user_by_username(self, username: str, db: Session) -> models.User:
+    def get_user_by_username(self, username: str, db: Session) -> list[models.User]:
         """
-        Get user by username.
+        Get users matching username pattern.
         
         Args:
-            username: Username
+            username: Username pattern
             db: Database session
             
         Returns:
-            User model
-            
-        Raises:
-            HTTPException: If user not found
+            List of matching User models
         """
-        user = self.user_repo.find_by_username(db, username)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"User {username} not found"
-            )
-        return self.attach_avatar_url(user)
+        users = self.user_repo.find_by_username(db, username)
+        return [self.attach_avatar_url(user) for user in users]
     
     def update_profile(
         self, user_id: int, update_data: schemas.UserUpdate, db: Session
