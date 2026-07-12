@@ -2,7 +2,7 @@
 
 import uuid
 from io import BytesIO
-from PIL import Image
+from PIL import Image, ImageOps
 from sqlalchemy.orm import Session
 from fastapi import UploadFile, HTTPException, status
 from typing import Optional
@@ -47,6 +47,7 @@ class FileManagementService:
         # Verify image validity and convert to WebP format
         try:
             image = Image.open(BytesIO(file_bytes))
+            image = ImageOps.exif_transpose(image)
             
             # Convert RGBA to RGB if saving to WebP (avoids transparent boundary compression artifacts)
             if image.mode in ("RGBA", "P"):
