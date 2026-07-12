@@ -102,7 +102,7 @@ class AuthService:
             )
         
         # Create tokens
-        access_token = create_access_token({"sub": str(user.id), "role": user.role})
+        access_token = create_access_token({"sub": str(user.id), "role": user.role, "username": user.username})
         refresh_token = create_refresh_token({"sub": str(user.id)})
         
         return {
@@ -161,7 +161,7 @@ class AuthService:
             )
             
         # Create a new access token
-        access_token = create_access_token({"sub": str(user.id), "role": user.role})
+        access_token = create_access_token({"sub": str(user.id), "role": user.role, "username": user.username})
         
         return {
             "access_token": access_token,

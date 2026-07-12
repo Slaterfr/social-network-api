@@ -10,7 +10,11 @@ from app.core.config import Config
 # Create database engine
 engine = create_engine(
     Config.SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in (Config.SQLALCHEMY_DATABASE_URL or "") else {},
+    connect_args={
+        "client_encoding": "utf8"
+    } if "postgresql" in (Config.SQLALCHEMY_DATABASE_URL or "") else {
+        "check_same_thread": False
+    } if "sqlite" in (Config.SQLALCHEMY_DATABASE_URL or "") else {},
     pool_pre_ping=True,
     pool_recycle=1800
 )
