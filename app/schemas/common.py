@@ -18,6 +18,11 @@ class Token(BaseModel):
     token_type: str
 
 
+class RefreshTokenRequest(BaseModel):
+    """Schema for refresh token request."""
+    refresh_token: str
+
+
 class ErrorResponse(BaseModel):
     """Standard error response."""
     detail: str

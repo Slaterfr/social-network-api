@@ -1,7 +1,7 @@
 """Schema layer - Pydantic models for request/response validation."""
 
 # Common schemas
-from .common import TokenData, Token, ErrorResponse, PaginationParams
+from .common import TokenData, Token, ErrorResponse, PaginationParams, RefreshTokenRequest
 
 # User schemas
 from .user_schemas import (
@@ -61,6 +61,7 @@ __all__ = [
     "Token",
     "ErrorResponse",
     "PaginationParams",
+    "RefreshTokenRequest",
     # User
     "UserCreate",
     "UserLogin",

@@ -60,3 +60,18 @@ def logout(current_user: models.User = Depends(get_current_user)):
     Requires authentication.
     """
     return {"message": "Logged out successfully"}
+
+
+@router.post('/refresh', response_model=schemas.Token)
+def refresh(
+    payload: schemas.RefreshTokenRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Refresh access token using a valid refresh token.
+    """
+    token_dict = auth_service.refresh_tokens(
+        refresh_token=payload.refresh_token,
+        db=db
+    )
+    return token_dict

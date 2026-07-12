@@ -11,6 +11,7 @@ from app.dependencies.security import (
     verify_password,
     create_access_token,
     create_refresh_token,
+    verify_token,
 )
 
 
@@ -117,3 +118,53 @@ class AuthService:
     def get_user_by_email(self, email: str, db: Session):
         """Get user by email."""
         return self.user_repo.find_by_email(db, email)
+
+    def refresh_tokens(self, refresh_token: str, db: Session) -> dict:
+        """
+        Verify a refresh token and generate a new access token.
+        
+        Args:
+            refresh_token: The user's refresh token
+            db: Database session
+            
+        Returns:
+            Token response dict containing new access token
+        """
+        payload = verify_token(refresh_token)
+        if not payload:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired refresh token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            
+        user_id_str = payload.get("sub")
+        if not user_id_str:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token payload",
+            )
+            
+        try:
+            user_id = int(user_id_str)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token payload format",
+            )
+            
+        user = self.user_repo.read(db, user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User associated with token not found",
+            )
+            
+        # Create a new access token
+        access_token = create_access_token({"sub": str(user.id), "role": user.role})
+        
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer"
+        }
