@@ -17,7 +17,7 @@ router = APIRouter(
 notification_service = NotificationService()
 
 
-@router.get("/", response_model=schemas.NotificationListResponse)
+@router.get("", response_model=schemas.NotificationListResponse)
 def get_notifications(
     skip: int = 0,
     limit: int = 100,
