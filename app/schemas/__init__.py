@@ -11,6 +11,8 @@ from .user_schemas import (
     UserChangePassword,
     UserResponse,
     UserPublicProfile,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
 )
 
 # Post schemas
@@ -69,6 +71,8 @@ __all__ = [
     "UserChangePassword",
     "UserResponse",
     "UserPublicProfile",
+    "ForgotPasswordRequest",
+    "ResetPasswordRequest",
     # Post
     "PostBase",
     "PostCreate",

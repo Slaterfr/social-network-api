@@ -104,3 +104,17 @@ class PostMedia(Base):
 
     post = so.relationship("Posts", back_populates="media_attachments")
     media_file = so.relationship("MediaFile")
+
+
+class RecoveryToken(Base):
+    __tablename__ = "recovery_tokens"
+
+    id = sa.Column(sa.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = sa.Column(sa.Integer, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token_hash = sa.Column(sa.String, nullable=False, unique=True, index=True)
+    exp_time = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False)
+    revoked = sa.Column(sa.Boolean, server_default='False', nullable=False)
+    date_issued = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.func.now())
+
+    user = so.relationship("User")
+

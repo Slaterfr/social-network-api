@@ -76,3 +76,26 @@ class UserPublicProfile(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Forgot password request schema."""
+    email: EmailStr
+    lang: Optional[str] = "en"
+
+
+class ResetPasswordRequest(BaseModel):
+    """Reset password request schema."""
+    token: str
+    new_password: str = Field(..., min_length=8, max_length=100)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_strength(cls, v):
+        """Validate new password strength."""
+        if not any(c.isupper() for c in v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Password must contain at least one digit")
+        return v
+
