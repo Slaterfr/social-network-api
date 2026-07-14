@@ -17,6 +17,7 @@ class Config:
     AWS_BUCKET_NAME=os.getenv('AWS_BUCKET_NAME')
     AWS_PUBLIC_BASE_URL=os.getenv('AWS_PUBLIC_BASE_URL')
     
+    SMTP_API_KEY = os.getenv('SMTP_API_KEY')
     SMTP_HOST = os.getenv('SMTP_HOST')
     SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
     SMTP_USERNAME = os.getenv('SMTP_USERNAME')

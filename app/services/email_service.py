@@ -1,5 +1,6 @@
 """Email service layer for sending password recovery messages."""
 
+import resend
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -84,7 +85,16 @@ class MailService:
 </html>
 """
 
-        # Check if SMTP is configured
+        resend.api_key = Config.SMTP_API_KEY
+
+        r = resend.Emails.send({
+            "from": "orbit@redorbit.win",
+            "to": email,
+            "subject": subject,
+            "html": html_body
+        })
+        
+        """  # Check if SMTP is configured
         if not Config.SMTP_HOST:
             print("\n" + "="*80)
             print(f"SMTP NOT CONFIGURED. MOCK EMAIL DETAILS FOR {email} ({lang.upper()}):")
@@ -121,4 +131,4 @@ class MailService:
         except Exception as e:
             logger.error("Failed to send recovery email to %s: %s", email, str(e))
             # Even if real SMTP fails, log link to stdout as safety fallback
-            print(f"\n[FALLBACK EMAIL LOG] Recovery URL: {reset_url}\n")
+            print(f"\n[FALLBACK EMAIL LOG] Recovery URL: {reset_url}\n") """
