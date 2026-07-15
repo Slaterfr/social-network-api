@@ -1,10 +1,10 @@
 from fastapi import Response, status, Depends, APIRouter
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 from .. import schemas, models
 from app.repository.database import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, get_optional_user
 from ..services import CommentService
 
 router = APIRouter(
@@ -25,8 +25,12 @@ def create_comment(
 
 
 @router.get("/{post_id}", response_model=List[schemas.CommentResponse])
-def get_comments(post_id: int, db: Session = Depends(get_db)):
-    return comment_service.get_post_comments(post_id, db)
+def get_comments(
+    post_id: int,
+    db: Session = Depends(get_db),
+    current_user: Optional[models.User] = Depends(get_optional_user)
+):
+    return comment_service.get_post_comments(post_id, db, current_user)
 
 
 @router.put("/{comment_id}", response_model=schemas.CommentResponse)

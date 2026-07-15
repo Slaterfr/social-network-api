@@ -31,6 +31,8 @@ class CommentResponse(CommentBase):
     user: UserPublicProfile
     created_at: datetime
     updated_at: Optional[datetime] = None
+    vote_count: int = 0
+    user_voted: bool = False
     
     class Config:
         from_attributes = True

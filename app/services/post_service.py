@@ -54,15 +54,16 @@ class PostService:
             db.commit()
             db.refresh(post)
 
-        return self._attach_post_media_urls(post)
+        return self._attach_post_media_urls(post, db)
     
-    def get_post(self, post_id: int, db: Session) -> models.Posts:
+    def get_post(self, post_id: int, db: Session, current_user: Optional[models.User] = None) -> models.Posts:
         """
         Get post by ID.
         
         Args:
             post_id: Post ID
             db: Database session
+            current_user: Optional current logged in user
             
         Returns:
             Post model
@@ -70,16 +71,17 @@ class PostService:
         Raises:
             HTTPException: If post not found
         """
-        post = self.post_repo.read(db, post_id)
+        current_user_id = current_user.id if current_user else None
+        post = self.post_repo.find_by_id_stats(db, post_id, current_user_id)
         if not post:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Post with id {post_id} not found"
             )
-        return self._attach_post_media_urls(post)
+        return self._attach_post_media_urls(post, db)
     
     def get_all_posts(
-        self, db: Session, skip: int = 0, limit: int = 10, search: str = ""
+        self, db: Session, skip: int = 0, limit: int = 10, search: str = "", current_user: Optional[models.User] = None
     ) -> List[models.Posts]:
         """
         Get all posts with optional search.
@@ -89,18 +91,20 @@ class PostService:
             skip: Number of records to skip
             limit: Max records to return
             search: Search term for title
+            current_user: Optional current logged in user
             
         Returns:
             List of posts
         """
+        current_user_id = current_user.id if current_user else None
         if search:
-            posts = self.post_repo.find_with_search(db, search, skip, limit)
+            posts = self.post_repo.find_with_search_stats(db, search, current_user_id, skip, limit)
         else:
-            posts = self.post_repo.find_published(db, skip, limit)
-        return [self._attach_post_media_urls(p) for p in posts]
+            posts = self.post_repo.find_published_stats(db, current_user_id, skip, limit)
+        return [self._attach_post_media_urls(p, db) for p in posts]
     
     def get_user_posts(
-        self, user_id: int, db: Session, skip: int = 0, limit: int = 10
+        self, user_id: int, db: Session, skip: int = 0, limit: int = 10, current_user: Optional[models.User] = None
     ) -> List[models.Posts]:
         """
         Get all posts by a user.
@@ -110,12 +114,14 @@ class PostService:
             db: Database session
             skip: Number of records to skip
             limit: Max records to return
+            current_user: Optional current logged in user
             
         Returns:
             List of user's posts
         """
-        posts = self.post_repo.find_by_owner(db, user_id, skip, limit)
-        return [self._attach_post_media_urls(p) for p in posts]
+        current_user_id = current_user.id if current_user else None
+        posts = self.post_repo.find_by_owner_stats(db, user_id, current_user_id, skip, limit)
+        return [self._attach_post_media_urls(p, db) for p in posts]
     
     def update_post(
         self, post_id: int, current_user: models.User, update_data: schemas.PostUpdate, db: Session
@@ -135,7 +141,7 @@ class PostService:
         Raises:
             HTTPException: If post not found or user not authorized
         """
-        post = self.get_post(post_id, db)
+        post = self.get_post(post_id, db, current_user)
         
         # Check authorization: owner or admin
         if post.owner_id != current_user.id and current_user.role != "admin":
@@ -150,7 +156,8 @@ class PostService:
         updated_post = self.post_repo.update(
             db, post_id, data_to_update
         )
-        return self._attach_post_media_urls(updated_post)
+        post_with_stats = self.post_repo.find_by_id_stats(db, post_id, current_user.id)
+        return self._attach_post_media_urls(post_with_stats, db)
     
     def delete_post(self, post_id: int, current_user: models.User, db: Session) -> bool:
         """
@@ -178,7 +185,7 @@ class PostService:
         
         return self.post_repo.delete(db, post_id)
 
-    def _attach_post_media_urls(self, post: models.Posts) -> models.Posts:
+    def _attach_post_media_urls(self, post: models.Posts, db: Session) -> models.Posts:
         """Attach presigned avatar and attachment download URLs to a post."""
         if not post:
             return post
@@ -204,6 +211,15 @@ class PostService:
                     except Exception:
                         pass
         post.media_urls = urls
+
+        # Ensure properties exist
+        if not hasattr(post, 'comment_count'):
+            post.comment_count = 0
+        if not hasattr(post, 'vote_count'):
+            post.vote_count = 0
+        if not hasattr(post, 'user_voted'):
+            post.user_voted = False
+
         return post
     
     def get_post_with_stats(self, post_id: int, db: Session) -> dict:

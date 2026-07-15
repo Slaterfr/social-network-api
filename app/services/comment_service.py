@@ -1,9 +1,10 @@
 """Comment service layer - handles comment CRUD with authorization."""
 
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
+from sqlalchemy import func
 
 from app import schemas, models
 from app.repository.comment_repository import CommentRepository
@@ -61,7 +62,7 @@ class CommentService:
                 "parent_id": comment_data.parent_id
             }
         )
-        return self._attach_comment_avatar(comment)
+        return self._attach_comment_avatar(comment, db)
     
     def get_comment(self, comment_id: int, db: Session) -> models.Comment:
         """
@@ -83,10 +84,10 @@ class CommentService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Comment with id {comment_id} not found"
             )
-        return self._attach_comment_avatar(comment)
+        return self._attach_comment_avatar(comment, db)
     
     def get_post_comments(
-        self, post_id: int, db: Session, skip: int = 0, limit: int = 20
+        self, post_id: int, db: Session, current_user: Optional[models.User] = None, skip: int = 0, limit: int = 20
     ) -> List[models.Comment]:
         """
         Get all comments for a post.
@@ -94,28 +95,24 @@ class CommentService:
         Args:
             post_id: Post ID
             db: Database session
+            current_user: Optional current logged in user
             skip: Number of records to skip
             limit: Max records to return
             
         Returns:
             List of comments
         """
-        comments = self.comment_repo.find_by_post(db, post_id, skip, limit)
-        return [self._attach_comment_avatar(c) for c in comments]
+        current_user_id = current_user.id if current_user else None
+        comments = self.comment_repo.find_by_post_with_stats(db, post_id, current_user_id, skip, limit)
+        return [self._attach_comment_avatar(c, db, current_user) for c in comments]
     
-    def get_comment_replies(self, comment_id: int, db: Session) -> List[models.Comment]:
+    def get_comment_replies(self, comment_id: int, db: Session, current_user: Optional[models.User] = None) -> List[models.Comment]:
         """
         Get all replies to a comment.
-        
-        Args:
-            comment_id: Parent comment ID
-            db: Database session
-            
-        Returns:
-            List of reply comments
         """
-        replies = self.comment_repo.find_replies(db, comment_id)
-        return [self._attach_comment_avatar(c) for c in replies]
+        current_user_id = current_user.id if current_user else None
+        replies = self.comment_repo.find_replies_with_stats(db, comment_id, current_user_id)
+        return [self._attach_comment_avatar(c, db, current_user) for c in replies]
     
     def update_comment(
         self, comment_id: int, current_user: models.User, update_data: schemas.CommentUpdate, db: Session
@@ -138,7 +135,8 @@ class CommentService:
         updated_comment = self.comment_repo.update(
             db, comment_id, data_to_update
         )
-        return self._attach_comment_avatar(updated_comment)
+        comment_with_stats = self.comment_repo.find_by_id_stats(db, comment_id, current_user.id)
+        return self._attach_comment_avatar(comment_with_stats or updated_comment, db, current_user)
     
     def delete_comment(self, comment_id: int, current_user: models.User, db: Session) -> bool:
         """
@@ -170,9 +168,12 @@ class CommentService:
         """Check if comment exists."""
         return self.comment_repo.read(db, comment_id) is not None
 
-    def _attach_comment_avatar(self, comment: models.Comment) -> models.Comment:
-        """Attach presigned avatar download URL to the comment's author."""
-        if comment and comment.user:
+    def _attach_comment_avatar(self, comment: models.Comment, db: Session, current_user: Optional[models.User] = None) -> models.Comment:
+        """Attach presigned avatar download URL and stats to the comment."""
+        if not comment:
+            return comment
+            
+        if comment.user:
             if comment.user.avatar:
                 try:
                     comment.user.avatar_url = self.file_management.generate_url(comment.user.avatar.storage_key)
@@ -180,4 +181,11 @@ class CommentService:
                     comment.user.avatar_url = None
             else:
                 comment.user.avatar_url = None
+                
+        # Ensure properties exist
+        if not hasattr(comment, 'vote_count'):
+            comment.vote_count = 0
+        if not hasattr(comment, 'user_voted'):
+            comment.user_voted = False
+                
         return comment

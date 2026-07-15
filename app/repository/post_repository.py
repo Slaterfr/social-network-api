@@ -86,3 +86,90 @@ class PostRepository(BaseCRUD[models.Posts]):
         """Check if a user is the owner of a post."""
         post = self.read(db, post_id)
         return post is not None and post.owner_id == user_id
+
+    def _get_posts_with_stats_query(self, db: Session, current_user_id: Optional[int] = None):
+        from sqlalchemy import func, literal
+        
+        vote_count_sub = db.query(func.count(models.Vote.user_id)).filter(
+            models.Vote.post_id == self.model.id
+        ).correlate(self.model).as_scalar()
+
+        comment_count_sub = db.query(func.count(models.Comment.id)).filter(
+            models.Comment.post_id == self.model.id
+        ).correlate(self.model).as_scalar()
+
+        if current_user_id:
+            user_voted_sub = db.query(models.Vote).filter(
+                models.Vote.post_id == self.model.id,
+                models.Vote.user_id == current_user_id
+            ).correlate(self.model).exists()
+        else:
+            user_voted_sub = literal(False)
+            
+        return db.query(
+            self.model,
+            vote_count_sub.label("vote_count"),
+            comment_count_sub.label("comment_count"),
+            user_voted_sub.label("user_voted")
+        )
+
+    def find_published_stats(
+        self, db: Session, current_user_id: Optional[int] = None, skip: int = 0, limit: int = 100
+    ) -> List[models.Posts]:
+        query = self._get_posts_with_stats_query(db, current_user_id)
+        results = query.filter(
+            self.model.published == True
+        ).order_by(desc(self.model.created_at)).offset(skip).limit(limit).all()
+        
+        posts = []
+        for post, vote_count, comment_count, user_voted in results:
+            post.vote_count = vote_count
+            post.comment_count = comment_count
+            post.user_voted = user_voted
+            posts.append(post)
+        return posts
+
+    def find_by_owner_stats(
+        self, db: Session, owner_id: int, current_user_id: Optional[int] = None, skip: int = 0, limit: int = 100
+    ) -> List[models.Posts]:
+        query = self._get_posts_with_stats_query(db, current_user_id)
+        results = query.filter(
+            self.model.owner_id == owner_id
+        ).order_by(desc(self.model.created_at)).offset(skip).limit(limit).all()
+        
+        posts = []
+        for post, vote_count, comment_count, user_voted in results:
+            post.vote_count = vote_count
+            post.comment_count = comment_count
+            post.user_voted = user_voted
+            posts.append(post)
+        return posts
+
+    def find_with_search_stats(
+        self, db: Session, search: str, current_user_id: Optional[int] = None, skip: int = 0, limit: int = 100
+    ) -> List[models.Posts]:
+        query = self._get_posts_with_stats_query(db, current_user_id)
+        results = query.filter(
+            or_(self.model.title.contains(search), self.model.content.contains(search))
+        ).order_by(desc(self.model.created_at)).offset(skip).limit(limit).all()
+        
+        posts = []
+        for post, vote_count, comment_count, user_voted in results:
+            post.vote_count = vote_count
+            post.comment_count = comment_count
+            post.user_voted = user_voted
+            posts.append(post)
+        return posts
+
+    def find_by_id_stats(
+        self, db: Session, post_id: int, current_user_id: Optional[int] = None
+    ) -> Optional[models.Posts]:
+        query = self._get_posts_with_stats_query(db, current_user_id)
+        result = query.filter(self.model.id == post_id).first()
+        if result:
+            post, vote_count, comment_count, user_voted = result
+            post.vote_count = vote_count
+            post.comment_count = comment_count
+            post.user_voted = user_voted
+            return post
+        return None

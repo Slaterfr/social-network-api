@@ -34,6 +34,7 @@ class PostResponse(PostBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     media_urls: List[str] = []
+    comment_count: int = 0
     
     class Config:
         from_attributes = True

@@ -56,7 +56,7 @@ def cancel_friend_request(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.delete("/{friendship_id}/remove", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{friendship_id}", status_code=status.HTTP_204_NO_CONTENT)
 def remove_friendship(
     friendship_id: UUID,
     db: Session = Depends(get_db),

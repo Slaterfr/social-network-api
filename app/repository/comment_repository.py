@@ -75,3 +75,66 @@ class CommentRepository(BaseCRUD[models.Comment]):
         return db.query(self.model).filter(
             (self.model.post_id == post_id) & (self.model.user_id == user_id)
         ).offset(skip).limit(limit).all()
+
+    def _get_comments_with_stats_query(self, db: Session, current_user_id: Optional[int] = None):
+        from sqlalchemy import func, literal
+        
+        vote_count_sub = db.query(func.count(models.CommentVote.user_id)).filter(
+            models.CommentVote.comment_id == self.model.id
+        ).correlate(self.model).as_scalar()
+
+        if current_user_id:
+            user_voted_sub = db.query(models.CommentVote).filter(
+                models.CommentVote.comment_id == self.model.id,
+                models.CommentVote.user_id == current_user_id
+            ).correlate(self.model).exists()
+        else:
+            user_voted_sub = literal(False)
+            
+        return db.query(
+            self.model,
+            vote_count_sub.label("vote_count"),
+            user_voted_sub.label("user_voted")
+        )
+
+    def find_by_post_with_stats(
+        self, db: Session, post_id: int, current_user_id: Optional[int] = None, skip: int = 0, limit: int = 100
+    ) -> List[models.Comment]:
+        query = self._get_comments_with_stats_query(db, current_user_id)
+        results = query.filter(
+            self.model.post_id == post_id
+        ).offset(skip).limit(limit).all()
+        
+        comments = []
+        for comment, vote_count, user_voted in results:
+            comment.vote_count = vote_count
+            comment.user_voted = user_voted
+            comments.append(comment)
+        return comments
+
+    def find_replies_with_stats(
+        self, db: Session, parent_comment_id: int, current_user_id: Optional[int] = None
+    ) -> List[models.Comment]:
+        query = self._get_comments_with_stats_query(db, current_user_id)
+        results = query.filter(
+            self.model.parent_id == parent_comment_id
+        ).all()
+        
+        comments = []
+        for comment, vote_count, user_voted in results:
+            comment.vote_count = vote_count
+            comment.user_voted = user_voted
+            comments.append(comment)
+        return comments
+
+    def find_by_id_stats(
+        self, db: Session, comment_id: int, current_user_id: Optional[int] = None
+    ) -> Optional[models.Comment]:
+        query = self._get_comments_with_stats_query(db, current_user_id)
+        result = query.filter(self.model.id == comment_id).first()
+        if result:
+            comment, vote_count, user_voted = result
+            comment.vote_count = vote_count
+            comment.user_voted = user_voted
+            return comment
+        return None
