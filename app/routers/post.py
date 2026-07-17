@@ -1,4 +1,4 @@
-from fastapi import Response, status, Depends, APIRouter, File, UploadFile
+from fastapi import Response, status, Depends, APIRouter, File, UploadFile, HTTPException
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -25,7 +25,17 @@ def get_posts(db: Session = Depends(get_db), limit: int = 10, skip: int = 0, sea
 
 @router.post('/', status_code=status.HTTP_201_CREATED, response_model=schemas.PostResponse)
 def create_posts(post: schemas.PostCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    if post.type == "announcement" and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can create announcements"
+        )
     return post_service.create_post(post, current_user.id, db)
+
+
+@router.get('/announcements', response_model=list[schemas.PostResponse])
+def get_announcements(db: Session = Depends(get_db)):
+    return post_service.get_announcements(db, limit=3)
 
 
 @router.get('/{id}', response_model=schemas.PostResponse)

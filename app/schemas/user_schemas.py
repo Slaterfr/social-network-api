@@ -10,6 +10,7 @@ class UserBase(BaseModel):
     email: EmailStr
     username: str = Field(..., min_length=3, max_length=50)
     bio: Optional[str] = Field(default=None, max_length=500)
+    theme_preference: Optional[int] = 0
 
 
 class UserCreate(UserBase):
@@ -37,6 +38,7 @@ class UserUpdate(BaseModel):
     """User profile update schema."""
     username: Optional[str] = Field(None, min_length=3, max_length=50)
     bio: Optional[str] = Field(None, max_length=500)
+    theme_preference: Optional[int] = Field(None, ge=0, le=15)
 
 
 class UserChangePassword(BaseModel):
@@ -73,6 +75,7 @@ class UserPublicProfile(BaseModel):
     bio: Optional[str]
     created_at: datetime
     avatar_url: Optional[str] = None
+    theme_preference: int = 0
     
     class Config:
         from_attributes = True

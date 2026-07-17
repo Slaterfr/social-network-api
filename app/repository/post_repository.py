@@ -118,7 +118,8 @@ class PostRepository(BaseCRUD[models.Posts]):
     ) -> List[models.Posts]:
         query = self._get_posts_with_stats_query(db, current_user_id)
         results = query.filter(
-            self.model.published == True
+            self.model.published == True,
+            self.model.type == "post"
         ).order_by(desc(self.model.created_at)).offset(skip).limit(limit).all()
         
         posts = []
@@ -134,7 +135,8 @@ class PostRepository(BaseCRUD[models.Posts]):
     ) -> List[models.Posts]:
         query = self._get_posts_with_stats_query(db, current_user_id)
         results = query.filter(
-            self.model.owner_id == owner_id
+            self.model.owner_id == owner_id,
+            self.model.type == "post"
         ).order_by(desc(self.model.created_at)).offset(skip).limit(limit).all()
         
         posts = []
@@ -150,8 +152,26 @@ class PostRepository(BaseCRUD[models.Posts]):
     ) -> List[models.Posts]:
         query = self._get_posts_with_stats_query(db, current_user_id)
         results = query.filter(
-            or_(self.model.title.contains(search), self.model.content.contains(search))
+            or_(self.model.title.contains(search), self.model.content.contains(search)),
+            self.model.type == "post"
         ).order_by(desc(self.model.created_at)).offset(skip).limit(limit).all()
+        
+        posts = []
+        for post, vote_count, comment_count, user_voted in results:
+            post.vote_count = vote_count
+            post.comment_count = comment_count
+            post.user_voted = user_voted
+            posts.append(post)
+        return posts
+
+    def find_announcements_stats(
+        self, db: Session, limit: int = 3
+    ) -> List[models.Posts]:
+        query = self._get_posts_with_stats_query(db, None)
+        results = query.filter(
+            self.model.published == True,
+            self.model.type == "announcement"
+        ).order_by(desc(self.model.created_at)).limit(limit).all()
         
         posts = []
         for post, vote_count, comment_count, user_voted in results:

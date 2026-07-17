@@ -14,7 +14,7 @@ class Posts(Base):
     created_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.func.now())
     owner_id = sa.Column(sa.Integer, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     owner = so.relationship("User")
-    number = sa.Column(sa.String, )
+    type = sa.Column(sa.String, nullable=False, server_default="post")
     updated_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=True)
     media_attachments = so.relationship("PostMedia", back_populates="post", order_by="PostMedia.order", cascade="all, delete-orphan")
 
@@ -28,6 +28,7 @@ class User(Base):
     username = sa.Column(sa.String, nullable=False, unique=True)
     bio = sa.Column(sa.String, nullable=True)
     role = sa.Column(sa.String, nullable=False, server_default="user")
+    theme_preference = sa.Column(sa.Integer, nullable=False, server_default="0")
     avatar_id = sa.Column(sa.UUID(as_uuid=True), sa.ForeignKey("media_files.id", ondelete="SET NULL", use_alter=True, name="fk_user_avatar"), nullable=True)
     avatar = so.relationship("MediaFile", foreign_keys=[avatar_id])
 

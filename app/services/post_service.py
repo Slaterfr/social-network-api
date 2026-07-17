@@ -39,7 +39,8 @@ class PostService:
                 "title": post_data.title,
                 "content": post_data.content,
                 "published": post_data.published,
-                "owner_id": owner_id
+                "owner_id": owner_id,
+                "type": post_data.type
             }
         )
         
@@ -244,3 +245,8 @@ class PostService:
     def post_exists(self, post_id: int, db: Session) -> bool:
         """Check if post exists."""
         return self.post_repo.read(db, post_id) is not None
+
+    def get_announcements(self, db: Session, limit: int = 3) -> List[models.Posts]:
+        """Get latest announcements."""
+        posts = self.post_repo.find_announcements_stats(db, limit)
+        return [self._attach_post_media_urls(p, db) for p in posts]
