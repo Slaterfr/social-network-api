@@ -13,6 +13,7 @@ class PostBase(BaseModel):
     content: str = Field(..., min_length=5, max_length=5000)
     published: bool = Field(default=True)
     type: str = Field(default="post")
+    status: Optional[str] = Field(default=None)
 
 
 class PostCreate(PostBase):
@@ -26,6 +27,7 @@ class PostUpdate(BaseModel):
     content: Optional[str] = Field(None, min_length=10, max_length=5000)
     published: Optional[bool] = None
     type: Optional[str] = None
+    status: Optional[str] = None
 
 
 class PostResponse(PostBase):

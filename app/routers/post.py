@@ -38,6 +38,17 @@ def get_announcements(db: Session = Depends(get_db)):
     return post_service.get_announcements(db, limit=3)
 
 
+@router.get('/suggestions', response_model=list[schemas.PostResponse])
+def get_suggestions(
+    db: Session = Depends(get_db),
+    sort_by: str = "votes",
+    skip: int = 0,
+    limit: int = 10,
+    current_user: models.User = Depends(get_current_user)
+):
+    return post_service.get_suggestions(db, current_user, sort_by, skip, limit)
+
+
 @router.get('/{id}', response_model=schemas.PostResponse)
 def get_post(id: int, db: Session = Depends(get_db)):
     return post_service.get_post(id, db)

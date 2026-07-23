@@ -33,6 +33,10 @@ class PostService:
         Returns:
             Created post model
         """
+        initial_status = None
+        if post_data.type == "suggestion":
+            initial_status = "under_review"
+
         post = self.post_repo.create(
             db,
             {
@@ -40,7 +44,8 @@ class PostService:
                 "content": post_data.content,
                 "published": post_data.published,
                 "owner_id": owner_id,
-                "type": post_data.type
+                "type": post_data.type,
+                "status": initial_status
             }
         )
         
@@ -152,6 +157,13 @@ class PostService:
             )
         
         data_to_update = update_data.dict(exclude_unset=True)
+        
+        if "status" in data_to_update and current_user.role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only administrators can update the status of suggestions"
+            )
+
         data_to_update["updated_at"] = datetime.now(timezone.utc)
         
         updated_post = self.post_repo.update(
@@ -249,4 +261,12 @@ class PostService:
     def get_announcements(self, db: Session, limit: int = 3) -> List[models.Posts]:
         """Get latest announcements."""
         posts = self.post_repo.find_announcements_stats(db, limit)
+        return [self._attach_post_media_urls(p, db) for p in posts]
+
+    def get_suggestions(
+        self, db: Session, current_user: Optional[models.User] = None, sort_by: str = "votes", skip: int = 0, limit: int = 10
+    ) -> List[models.Posts]:
+        """Get suggestions."""
+        current_user_id = current_user.id if current_user else None
+        posts = self.post_repo.find_suggestions_stats(db, current_user_id, sort_by, skip, limit)
         return [self._attach_post_media_urls(p, db) for p in posts]

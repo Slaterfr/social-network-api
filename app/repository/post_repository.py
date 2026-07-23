@@ -181,6 +181,29 @@ class PostRepository(BaseCRUD[models.Posts]):
             posts.append(post)
         return posts
 
+    def find_suggestions_stats(
+        self, db: Session, current_user_id: Optional[int] = None, sort_by: str = "votes", skip: int = 0, limit: int = 100
+    ) -> List[models.Posts]:
+        from sqlalchemy import text
+        query = self._get_posts_with_stats_query(db, current_user_id)
+        query = query.filter(
+            self.model.published == True,
+            self.model.type == "suggestion"
+        )
+        if sort_by == "votes":
+            query = query.order_by(desc(text("vote_count")), desc(self.model.created_at))
+        else:
+            query = query.order_by(desc(self.model.created_at))
+            
+        results = query.offset(skip).limit(limit).all()
+        posts = []
+        for post, vote_count, comment_count, user_voted in results:
+            post.vote_count = vote_count
+            post.comment_count = comment_count
+            post.user_voted = user_voted
+            posts.append(post)
+        return posts
+
     def find_by_id_stats(
         self, db: Session, post_id: int, current_user_id: Optional[int] = None
     ) -> Optional[models.Posts]:

@@ -15,6 +15,7 @@ class Posts(Base):
     owner_id = sa.Column(sa.Integer, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     owner = so.relationship("User")
     type = sa.Column(sa.String, nullable=False, server_default="post")
+    status = sa.Column(sa.String, nullable=True, server_default=None)
     updated_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=True)
     media_attachments = so.relationship("PostMedia", back_populates="post", order_by="PostMedia.order", cascade="all, delete-orphan")
 
