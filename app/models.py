@@ -120,3 +120,76 @@ class RecoveryToken(Base):
 
     user = so.relationship("User")
 
+
+class Community(Base):
+    __tablename__ = "communities"
+
+    id = sa.Column(sa.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = sa.Column(sa.String, nullable=False, unique=True, index=True)
+    slogan = sa.Column(sa.String, nullable=True)
+    privacy = sa.Column(sa.String, nullable=False, server_default="public")
+    owner_id = sa.Column(sa.Integer, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.func.now())
+    modified_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=True)
+    deleted_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=True)
+    avatar_key = sa.Column(sa.String, nullable=True)
+
+    owner = so.relationship("User", foreign_keys=[owner_id])
+
+
+class CommunityMember(Base):
+    __tablename__ = "community_members"
+
+    user_id = sa.Column(sa.Integer, sa.ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    community_id = sa.Column(sa.UUID(as_uuid=True), sa.ForeignKey("communities.id", ondelete="CASCADE"), primary_key=True)
+    community_role = sa.Column(sa.String, nullable=False, server_default="member")
+    status = sa.Column(sa.String, nullable=False, server_default="active")
+    joined_date = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.func.now())
+    date_left = sa.Column(sa.TIMESTAMP(timezone=True), nullable=True)
+    updated_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.func.now(), onupdate=sa.func.now())
+
+    user = so.relationship("User")
+    community = so.relationship("Community")
+
+
+class CommunityMessage(Base):
+    __tablename__ = "community_messages"
+
+    id = sa.Column(sa.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    community_id = sa.Column(sa.UUID(as_uuid=True), sa.ForeignKey("communities.id", ondelete="CASCADE"), nullable=False)
+    issuer_id = sa.Column(sa.Integer, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    content = sa.Column(sa.String, nullable=False)
+    reply_to_message_id = sa.Column(sa.UUID(as_uuid=True), sa.ForeignKey("community_messages.id", ondelete="SET NULL"), nullable=True)
+    message_type = sa.Column(sa.String, nullable=False, server_default="text")
+    created_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.func.now())
+    updated_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=True)
+    deleted_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=True)
+
+    user = so.relationship("User", foreign_keys=[issuer_id])
+    community = so.relationship("Community")
+    replied_to = so.relationship("CommunityMessage", remote_side=[id])
+
+
+class CommunityJoinRequest(Base):
+    __tablename__ = "community_join_requests"
+
+    id = sa.Column(sa.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = sa.Column(sa.Integer, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    community_id = sa.Column(sa.UUID(as_uuid=True), sa.ForeignKey("communities.id", ondelete="CASCADE"), nullable=False)
+    status = sa.Column(sa.String, nullable=False, server_default="pending")
+    created_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.func.now())
+    updated_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.func.now(), onupdate=sa.func.now())
+
+    user = so.relationship("User")
+    community = so.relationship("Community")
+
+
+class WebSocketTicket(Base):
+    __tablename__ = "websocket_tickets"
+
+    ticket = sa.Column(sa.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = sa.Column(sa.Integer, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.func.now())
+
+    user = so.relationship("User")
+

@@ -102,3 +102,9 @@ class ResetPasswordRequest(BaseModel):
             raise ValueError("Password must contain at least one digit")
         return v
 
+
+class AdminEmailBroadcast(BaseModel):
+    subject: str = Field(..., min_length=3, max_length=150)
+    body: str = Field(..., min_length=10, max_length=10000)
+    test_email: Optional[EmailStr] = None
+

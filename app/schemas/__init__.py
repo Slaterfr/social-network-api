@@ -13,6 +13,7 @@ from .user_schemas import (
     UserPublicProfile,
     ForgotPasswordRequest,
     ResetPasswordRequest,
+    AdminEmailBroadcast,
 )
 
 # Post schemas
@@ -57,6 +58,18 @@ from .notification_schemas import (
     NotificationListResponse,
 )
 
+# Community schemas
+from .community_schemas import (
+    CommunityCreate,
+    CommunityResponse,
+    CommunityMemberResponse,
+    MemberRoleUpdate,
+    CommunityMessageCreate,
+    CommunityMessageResponse,
+    CommunityJoinRequestResponse,
+    JoinRequestAction,
+)
+
 __all__ = [
     # Common
     "TokenData",
@@ -73,6 +86,7 @@ __all__ = [
     "UserPublicProfile",
     "ForgotPasswordRequest",
     "ResetPasswordRequest",
+    "AdminEmailBroadcast",
     # Post
     "PostBase",
     "PostCreate",
@@ -100,4 +114,13 @@ __all__ = [
     # Notification
     "NotificationResponse",
     "NotificationListResponse",
+    # Community
+    "CommunityCreate",
+    "CommunityResponse",
+    "CommunityMemberResponse",
+    "MemberRoleUpdate",
+    "CommunityMessageCreate",
+    "CommunityMessageResponse",
+    "CommunityJoinRequestResponse",
+    "JoinRequestAction",
 ]

@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, status, HTTPException, File, UploadFile
+from fastapi import APIRouter, Depends, status, HTTPException, File, UploadFile, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from .. import schemas, models
 from app.repository.database import get_db
 from app.dependencies.auth import get_current_user
 from ..services import UserService, AuthService
+from app.services.email_service import MailService
 
 router = APIRouter(
     prefix='/users',
@@ -110,3 +111,54 @@ def change_password(
         db
     )
     return {"message": "Password changed successfully"}
+
+
+def send_bulk_announcements_task(subject: str, body: str, db: Session):
+    # Fetch all active users who have emails
+    users = db.query(models.User).all()
+    for u in users:
+        if u.email:
+            try:
+                MailService.send_announcement_email(u.email, subject, body)
+            except Exception as e:
+                print(f"Failed to send broadcast email to {u.email}: {e}")
+
+
+@router.post('/admin/broadcast-email', status_code=status.HTTP_200_OK)
+def broadcast_admin_email(
+    broadcast_data: schemas.AdminEmailBroadcast,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Broadcast an email message to all registered users.
+    Only administrators are authorized to perform this operation.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can send system broadcasts"
+        )
+    
+    if broadcast_data.test_email:
+        try:
+            MailService.send_announcement_email(
+                str(broadcast_data.test_email), 
+                broadcast_data.subject, 
+                broadcast_data.body
+            )
+            return {"message": f"Test email sent to {broadcast_data.test_email}"}
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to send test email: {str(e)}"
+            )
+
+    background_tasks.add_task(
+        send_bulk_announcements_task, 
+        broadcast_data.subject, 
+        broadcast_data.body, 
+        db
+    )
+    return {"message": "Email broadcast successfully queued in the background"}

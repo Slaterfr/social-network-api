@@ -93,6 +93,42 @@ class MailService:
             "subject": subject,
             "html": html_body
         })
+
+    @staticmethod
+    def send_announcement_email(email: str, subject: str, body_content: str) -> None:
+        """Construct and dispatch an announcement/notification email."""
+        html_body = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{subject}</title>
+</head>
+<body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0f172a; color: #f1f5f9; padding: 20px; margin: 0;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #1e293b; border-radius: 12px; padding: 30px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); border: 1px solid #334155;">
+        <div style="text-align: center; margin-bottom: 24px;">
+            <span style="font-size: 24px; font-weight: bold; color: #ec4899;">Orbit Announcement</span>
+        </div>
+        <h2 style="font-size: 20px; font-weight: 600; text-align: center; margin-bottom: 16px; color: #ffffff;">{subject}</h2>
+        <div style="font-size: 15px; line-height: 1.6; color: #94a3b8; margin-bottom: 24px; text-align: left; white-space: pre-line;">
+            {body_content}
+        </div>
+        <hr style="border: 0; border-top: 1px solid #334155; margin: 24px 0;">
+        <p style="font-size: 11px; line-height: 1.4; color: #475569; text-align: center;">
+            This is an official system announcement from the Orbit platform.
+        </p>
+    </div>
+</body>
+</html>
+"""
+
+        resend.api_key = Config.SMTP_API_KEY
+
+        r = resend.Emails.send({
+            "from": "orbit@redorbit.win",
+            "to": email,
+            "subject": subject,
+            "html": html_body
+        })
         
         """  # Check if SMTP is configured
         if not Config.SMTP_HOST:
