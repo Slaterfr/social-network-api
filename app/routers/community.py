@@ -47,6 +47,14 @@ def get_my_communities(
     return community_service.get_user_communities(db, current_user.id)
 
 
+@router.get("/invitations", response_model=List[schemas.CommunityResponse])
+def get_my_invitations(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    return community_service.get_user_invitations(db, current_user.id)
+
+
 @router.post("/ws-ticket", status_code=status.HTTP_201_CREATED)
 def get_ws_ticket(
     db: Session = Depends(get_db),
@@ -262,3 +270,13 @@ async def community_ws_endpoint(
                 continue
     except WebSocketDisconnect:
         manager.disconnect(websocket, id)
+
+
+@router.post("/{id}/invite", status_code=status.HTTP_200_OK)
+def invite_user(
+    id: uuid.UUID,
+    invite_data: schemas.CommunityInvite,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    return community_service.invite_user_to_community(id, invite_data.username, current_user.id, db)

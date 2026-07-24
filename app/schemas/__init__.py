@@ -68,6 +68,7 @@ from .community_schemas import (
     CommunityMessageResponse,
     CommunityJoinRequestResponse,
     JoinRequestAction,
+    CommunityInvite,
 )
 
 __all__ = [
@@ -123,4 +124,5 @@ __all__ = [
     "CommunityMessageResponse",
     "CommunityJoinRequestResponse",
     "JoinRequestAction",
+    "CommunityInvite",
 ]

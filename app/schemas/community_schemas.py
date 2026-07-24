@@ -21,6 +21,7 @@ class CommunityResponse(CommunityBase):
     member_count: int = 0
     role_in_community: Optional[str] = None
     join_request_status: Optional[str] = None
+    join_request_id: Optional[uuid.UUID] = None
 
     class Config:
         from_attributes = True
@@ -73,3 +74,7 @@ class CommunityJoinRequestResponse(BaseModel):
 
 class JoinRequestAction(BaseModel):
     status: str = Field(...)
+
+
+class CommunityInvite(BaseModel):
+    username: str

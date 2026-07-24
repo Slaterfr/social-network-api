@@ -92,10 +92,20 @@ class CommunityService:
 
         # Privacy gate checks
         if community.privacy == "private" and not community.role_in_community:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="This community is private and invite-only"
-            )
+            # Check if user has a pending invitation
+            invited = db.query(models.CommunityJoinRequest).filter(
+                models.CommunityJoinRequest.community_id == community.id,
+                models.CommunityJoinRequest.user_id == current_user_id,
+                models.CommunityJoinRequest.status == "invited"
+            ).first()
+            if not invited:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This community is private and invite-only"
+                )
+            else:
+                community.join_request_status = "invited"
+                community.join_request_id = invited.id
 
         return community
 
@@ -125,15 +135,26 @@ class CommunityService:
         )
 
     # Membership & Join Requests
-    def join_community(self, community_id: uuid.UUID, user_id: int, db: Session) -> dict:
-        community = self.get_community(community_id, db, user_id)
-        
-        # Check if already active member
-        role = self.community_repo.get_member_role(db, community_id, user_id)
-        if role:
-            return {"status": "member", "detail": "Already a member"}
+    def join_community(self, community_id: uuid.UUID, user_id: int, db: Session):
+        community = db.query(models.Community).filter(
+            models.Community.id == community_id,
+            models.Community.deleted_at.is_(None)
+        ).first()
 
-        if community.privacy == "public":
+        if not community:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Community not found"
+            )
+
+        # Check if user has an invitation
+        invited = db.query(models.CommunityJoinRequest).filter(
+            models.CommunityJoinRequest.community_id == community_id,
+            models.CommunityJoinRequest.user_id == user_id,
+            models.CommunityJoinRequest.status == "invited"
+        ).first()
+
+        if community.privacy == "public" or invited:
             # Direct join
             member = db.query(models.CommunityMember).filter(
                 models.CommunityMember.community_id == community_id,
@@ -151,6 +172,8 @@ class CommunityService:
                     community_role="member",
                     status="active"
                 ))
+            if invited:
+                db.delete(invited)
             db.commit()
             return {"status": "approved", "detail": "Joined successfully"}
 
@@ -222,12 +245,16 @@ class CommunityService:
                 detail="Join request not found"
             )
 
-        role = self.community_repo.get_member_role(db, req.community_id, current_user_id)
-        if role not in ["owner", "moderator"]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only community moderators or owners can manage join requests"
-            )
+        # Allow target invited user to decline/reject their invitation
+        is_invited_user = req.user_id == current_user_id and req.status == "invited"
+
+        if not is_invited_user:
+            role = self.community_repo.get_member_role(db, req.community_id, current_user_id)
+            if role not in ["owner", "moderator"]:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Only community moderators or owners can manage join requests"
+                )
 
         if action == "approved":
             req.status = "approved"
@@ -459,3 +486,86 @@ class CommunityService:
         msg.deleted_at = datetime.now(timezone.utc)
         db.commit()
         return msg
+
+    def invite_user_to_community(self, community_id: uuid.UUID, username: str, current_user_id: int, db: Session):
+        # 1. Fetch community & verify current user role is owner or moderator
+        community = self.get_community(community_id, db, current_user_id)
+        role = community.role_in_community
+        if role not in ["owner", "moderator"] and community.owner_id != current_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only community owners and moderators can invite members"
+            )
+
+        # 2. Get target user by username
+        target_user = db.query(models.User).filter(
+            models.User.username.ilike(username)
+        ).first()
+        if not target_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        # 3. Check if target user is already a member
+        member = db.query(models.CommunityMember).filter(
+            models.CommunityMember.community_id == community_id,
+            models.CommunityMember.user_id == target_user.id,
+            models.CommunityMember.status == "active"
+        ).first()
+        if member:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User is already a member of this community"
+            )
+
+        # 4. Check if request/invite already exists
+        existing_invite = db.query(models.CommunityJoinRequest).filter(
+            models.CommunityJoinRequest.community_id == community_id,
+            models.CommunityJoinRequest.user_id == target_user.id
+        ).first()
+        if existing_invite:
+            if existing_invite.status == "invited":
+                return {"status": "invited", "detail": "User is already invited"}
+            elif existing_invite.status == "pending":
+                # Convert pending request to approved membership instantly!
+                db.delete(existing_invite)
+                db.add(models.CommunityMember(
+                    user_id=target_user.id,
+                    community_id=community_id,
+                    community_role="member",
+                    status="active"
+                ))
+                db.commit()
+                return {"status": "approved", "detail": "Approved pending join request"}
+
+        # 5. Create invitation
+        db.add(models.CommunityJoinRequest(
+            user_id=target_user.id,
+            community_id=community_id,
+            status="invited"
+        ))
+        db.commit()
+        return {"status": "invited", "detail": "Invitation sent successfully"}
+
+    def get_user_invitations(self, db: Session, user_id: int) -> List[models.Community]:
+        # Find all join requests with status "invited" for this user
+        requests = db.query(models.CommunityJoinRequest).filter(
+            models.CommunityJoinRequest.user_id == user_id,
+            models.CommunityJoinRequest.status == "invited"
+        ).all()
+        
+        communities = []
+        for req in requests:
+            community = db.query(models.Community).filter(
+                models.Community.id == req.community_id,
+                models.Community.deleted_at.is_(None)
+            ).first()
+            if community:
+                self._attach_avatar_url(community)
+                community.member_count = self.community_repo.get_member_count(db, community.id)
+                community.role_in_community = None
+                community.join_request_status = "invited"
+                community.join_request_id = req.id
+                communities.append(community)
+        return communities
