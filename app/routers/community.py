@@ -94,7 +94,7 @@ async def upload_community_avatar(
     community_service.get_community(id, db, current_user.id)
     
     # Save file
-    uploaded_file = await file_management_service.save_file(file, current_user.id, db)
+    uploaded_file = await file_management_service.upload_file(file, "community_avatars", current_user.id, db)
     return community_service.update_community_avatar(id, uploaded_file.storage_key, current_user, db)
 
 
